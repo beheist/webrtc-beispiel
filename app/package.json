@@ -1,0 +1,15 @@
+{
+  "name": "webrtc-demo",
+  "version": "0.1.0",
+  "description": "WebRTC Demo with Video, Audio and Data Channel",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "Bastian Heist",
+  "license": "MIT",
+  "dependencies": {
+    "express": "^4.15.3",
+    "socket.io": "^2.0.3"
+  }
+}
