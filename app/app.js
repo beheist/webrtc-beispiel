@@ -6,10 +6,10 @@
 
 const vidLocal = document.getElementById('vidLocal');
 const vidRemote = document.getElementById('vidRemote');
-const btnStart = document.getElementById('btnStart');
-const btnStop = document.getElementById('btnStop');
 const displayChat = document.getElementById('displayChat');
 const enterChat = document.getElementById('enterChat');
+
+const logErrors = err => {console.error(err)};
 
 const ui = {
 	appendChatMessage: (name, text) => {
@@ -70,6 +70,22 @@ socket.emit('join', 'default', (message, {clients}) => {
 	}
 });
 
+/**
+ * --------------------------
+ * Local Video
+ * --------------------------
+ */
+let localStream;
+
+navigator.mediaDevices.getUserMedia({
+	audio: true,
+	video: true
+})
+	.then(stream => {
+		vidLocal.src = window.URL.createObjectURL(stream);
+		localStream = stream;
+	})
+	.catch(logErrors);
 
 /**
  * --------------------------
@@ -79,12 +95,10 @@ socket.emit('join', 'default', (message, {clients}) => {
 let connection;
 let dataChannel;
 
-const logErrors = err => {console.error(err)};
-
 const receiveSignalingMessage = (message) => {
 	switch (message.type) {
 		case 'init':
-			ui.appendChatMessage('SYSTEM', `User "${message.from}" joined.`);
+			ui.appendChatMessage('SYSTEM', `Peer joined.`);
 			createConnection(false);
 			break;
 		case 'offer':
