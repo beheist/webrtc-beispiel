@@ -8,6 +8,7 @@ const vidLocal = document.getElementById('vidLocal');
 const vidRemote = document.getElementById('vidRemote');
 const displayChat = document.getElementById('displayChat');
 const enterChat = document.getElementById('enterChat');
+const btnStart = document.getElementById('btnStart');
 
 const logErrors = err => {console.error(err)};
 
@@ -28,6 +29,14 @@ const ui = {
 		}
 	}
 };
+
+/**
+ * --------------------------
+ * Local Video
+ * --------------------------
+ */
+let localStream;
+let remoteStream;
 
 /**
  * --------------------------
@@ -54,44 +63,12 @@ const receiveMessage = (message) => {
 };
 socket.on('message', receiveMessage);
 
-// Join a default room
-socket.emit('join', 'default', (message, {clients}) => {
-	// If clients.length is 0, we just created the room and need to wait for a peer
-	let clientNames = Object.keys(clients);
-	if (clientNames.length === 0) {
-		console.log('First in room, waiting for peers.');
-		ui.appendChatMessage('SYSTEM', 'Created room "default". Waiting for users.');
-	} else {
-		sendMessage({
-			type: 'init'
-		});
-		createConnection(true);
-		ui.appendChatMessage('SYSTEM', 'Joined room "default".');
-	}
-});
-
-/**
- * --------------------------
- * Local Video
- * --------------------------
- */
-let localStream;
-
-navigator.mediaDevices.getUserMedia({
-	audio: true,
-	video: true
-})
-	.then(stream => {
-		vidLocal.src = window.URL.createObjectURL(stream);
-		localStream = stream;
-	})
-	.catch(logErrors);
-
 /**
  * --------------------------
  * WebRTC
  * --------------------------
  */
+
 let connection;
 let dataChannel;
 
@@ -99,7 +76,8 @@ const receiveSignalingMessage = (message) => {
 	switch (message.type) {
 		case 'init':
 			ui.appendChatMessage('SYSTEM', `Peer joined.`);
-			createConnection(false);
+			createConnection();
+			startConnection(false);
 			break;
 		case 'offer':
 			connection.setRemoteDescription(new RTCSessionDescription(message.descr), () => {}, logErrors);
@@ -113,22 +91,21 @@ const receiveSignalingMessage = (message) => {
 				candidate: message.candidate
 			}));
 			break;
-		case 'remove':
-			console.log('Connection terminated.');
-			connection.close();
-			break;
 		default:
 			logErrors(`Unknown message type: "${message.type}"`);
 			break;
 	}
 };
 
-const createConnection = (isCreator) => {
-	console.log('Creating RTC connection as ' + (isCreator ? 'creator' : 'client'));
+const createConnection = () => {
 	connection = new RTCPeerConnection();
+	connection.addStream(localStream);
+};
 
-	//	 send any ice candidates to the other peer
-	connection.onicecandidate = function (event) {
+const startConnection = (isCreator) => {
+	console.log('Starting RTC connection as ' + (isCreator ? 'creator' : 'client'));
+
+	connection.onicecandidate = (event) => {
 		if (event.candidate) {
 			sendMessage({
 				type: 'candidate',
@@ -136,9 +113,12 @@ const createConnection = (isCreator) => {
 				id: event.candidate.sdpMid,
 				candidate: event.candidate.candidate
 			});
-		} else {
-			console.log('End of candidates.');
 		}
+	};
+
+	connection.onaddstream = (e) => {
+		vidRemote.src = window.URL.createObjectURL(e.stream);
+		remoteStream = e.stream;
 	};
 
 	if (isCreator) {
@@ -175,3 +155,39 @@ function onDataChannelCreated(channel) {
 		ui.appendChatMessage('Peer', message.data);
 	}
 }
+
+/**
+ * --------------------------
+ * Button Handlers
+ * --------------------------
+ */
+btnStart.onclick = (e) => {
+	navigator.mediaDevices.getUserMedia({
+		audio: true,
+		video: true
+	})
+		.then(stream => {
+			vidLocal.src = window.URL.createObjectURL(stream);
+			localStream = stream;
+
+			// Join a default room
+			socket.emit('join', 'default', (message, {clients}) => {
+				// If clients.length is 0, we just created the room and need to wait for a peer
+				let clientNames = Object.keys(clients);
+				if (clientNames.length === 0) {
+					console.log('First in room, waiting for peers.');
+					ui.appendChatMessage('SYSTEM', 'Created room "default". Waiting for users.');
+				} else {
+					sendMessage({
+						type: 'init'
+					});
+					createConnection();
+					startConnection(true);
+					ui.appendChatMessage('SYSTEM', 'Joined room "default".');
+				}
+			});
+		})
+		.catch(logErrors);
+
+	btnStart.disabled = true;
+};
