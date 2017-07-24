@@ -30,14 +30,12 @@
 <body>
 <div id="videoArea">
 	<video id="vidLocal" autoplay muted></video>
-	<div>
-		<button id="btnStart">Start</button>
-	</div>
+	<button id="btnStart">Start</button>
 	<video id="vidRemote" autoplay></video>
 </div>
 <div id="chatArea">
 	<div id="displayChat"></div>
-	<input type="text" id="enterChat" disabled/>
+	<input type="text" id="enterChat" placeholder="Chatnachricht eingeben" disabled/>
 </div>
 <script src="node_modules/socket.io-client/dist/socket.io.js"></script>
 <script src="app.js"></script>
