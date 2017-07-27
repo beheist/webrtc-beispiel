@@ -19,9 +19,9 @@ const ui = {
 	},
 	enableChat: () => {
 		enterChat.disabled = false;
-		enterChat.onkeyup = (keyevent) => {
+		enterChat.onkeyup = e => {
 			// if enter is pressed
-			if (keyevent.keyCode === 13) {
+			if (e.keyCode === 13) {
 				dataChannel.send(enterChat.value);
 				ui.appendChatMessage('Du', enterChat.value);
 				enterChat.value = '';
@@ -43,10 +43,14 @@ let remoteStream;
  * Signaling
  * --------------------------
  */
+
 const socket = io.connect('http://localhost:8888');
 
+let connection;
+let dataChannel;
+
 // Send a message to the signaling server
-const sendMessage = (message) => {
+const sendMessage = message => {
 	message = Object.assign({to: 'default'}, message);
 	console.log(`>>> SENT: ${message.type}`, message);
 	socket.emit('message', message);
@@ -63,15 +67,6 @@ const receiveMessage = (message) => {
 };
 socket.on('message', receiveMessage);
 
-/**
- * --------------------------
- * WebRTC
- * --------------------------
- */
-
-let connection;
-let dataChannel;
-
 const receiveSignalingMessage = (message) => {
 	switch (message.type) {
 		case 'init':
@@ -80,11 +75,15 @@ const receiveSignalingMessage = (message) => {
 			startConnection(false);
 			break;
 		case 'offer':
-			connection.setRemoteDescription(new RTCSessionDescription(message.descr), () => {}, logErrors);
-			connection.createAnswer(onOfferReceived, logErrors);
+			connection
+				.setRemoteDescription(new RTCSessionDescription(message.descr))
+				.then(() => connection.createAnswer())
+				.then(answer => connection.setLocalDescription(new RTCSessionDescription(answer)))
+				.then(() => sendMessage({type: 'answer', descr: connection.localDescription}))
+				.catch(logErrors);
 			break;
 		case 'answer':
-			connection.setRemoteDescription(new RTCSessionDescription(message.descr), () => {}, logErrors);
+			connection.setRemoteDescription(new RTCSessionDescription(message.descr));
 			break;
 		case 'candidate':
 			connection.addIceCandidate(new RTCIceCandidate({
@@ -97,6 +96,13 @@ const receiveSignalingMessage = (message) => {
 	}
 };
 
+
+/**
+ * --------------------------
+ * WebRTC
+ * --------------------------
+ */
+
 const createConnection = () => {
 	connection = new RTCPeerConnection();
 	connection.addStream(localStream);
@@ -105,7 +111,7 @@ const createConnection = () => {
 const startConnection = (isCreator) => {
 	console.log('Starting RTC connection as ' + (isCreator ? 'creator' : 'client'));
 
-	connection.onicecandidate = (event) => {
+	connection.onicecandidate = e => {
 		if (event.candidate) {
 			sendMessage({
 				type: 'candidate',
@@ -116,7 +122,7 @@ const startConnection = (isCreator) => {
 		}
 	};
 
-	connection.onaddstream = (e) => {
+	connection.onaddstream = e => {
 		vidRemote.src = window.URL.createObjectURL(e.stream);
 		remoteStream = e.stream;
 	};
@@ -125,33 +131,25 @@ const startConnection = (isCreator) => {
 		dataChannel = connection.createDataChannel('chat');
 		onDataChannelCreated(dataChannel);
 
-		connection.createOffer(onLocalSessionCreated, logErrors);
+		connection
+			.createOffer()
+			.then(offer => connection.setLocalDescription(new RTCSessionDescription(offer)))
+			.then(() => sendMessage({type: 'offer', descr: connection.localDescription}))
+			.catch(logErrors);
+
 	} else {
-		connection.ondatachannel = function (event) {
+		connection.ondatachannel = event => {
 			dataChannel = event.channel;
 			onDataChannelCreated(dataChannel);
 		};
 	}
 };
 
-function onLocalSessionCreated(desc) {
-	connection.setLocalDescription(desc, function () {
-		sendMessage({type: 'offer', descr: connection.localDescription});
-	}, logErrors);
-}
-
-function onOfferReceived(desc) {
-	connection.setLocalDescription(desc, function () {
-		sendMessage({type: 'answer', descr: connection.localDescription});
-	}, logErrors);
-}
-
 function onDataChannelCreated(channel) {
-	channel.onopen = function () {
+	channel.onopen = () => {
 		ui.enableChat();
 	};
-
-	channel.onmessage = (message) => {
+	channel.onmessage = message => {
 		ui.appendChatMessage('Peer', message.data);
 	}
 }
@@ -161,7 +159,7 @@ function onDataChannelCreated(channel) {
  * Button Handlers
  * --------------------------
  */
-btnStart.onclick = (e) => {
+btnStart.onclick = e => {
 	navigator.mediaDevices.getUserMedia({
 		audio: true,
 		video: true
