@@ -1,6 +1,6 @@
 # WebRTC Demo App mit Data Channel und Videokonferenz
 
-Beispielanwendung zu meinem WebRTC-Artikel in der t3n.
+Beispielanwendung zu meinem WebRTC-Artikel in der t3n. Ausführliche Erläuterungen findet ihr unter https://sandstorm.de/de/blog/post/webrtc-beispielanwendung.html.
 
 ## Installation:
 `nvm use` (falls nvm vorhanden)
