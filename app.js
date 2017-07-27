@@ -112,18 +112,16 @@ const startConnection = (isCreator) => {
 	console.log('Starting RTC connection as ' + (isCreator ? 'creator' : 'client'));
 
 	connection.onicecandidate = e => {
-		if (event.candidate) {
+		if (e.candidate) {
 			sendMessage({
 				type: 'candidate',
-				label: event.candidate.sdpMLineIndex,
-				id: event.candidate.sdpMid,
-				candidate: event.candidate.candidate
+				candidate: e.candidate.candidate
 			});
 		}
 	};
 
 	connection.onaddstream = e => {
-		vidRemote.src = window.URL.createObjectURL(e.stream);
+		vidRemote.srcObject = e.stream;
 		remoteStream = e.stream;
 	};
 
@@ -160,12 +158,13 @@ function onDataChannelCreated(channel) {
  * --------------------------
  */
 btnStart.onclick = e => {
-	navigator.mediaDevices.getUserMedia({
-		audio: true,
-		video: true
-	})
+	navigator.mediaDevices
+		.getUserMedia({
+			audio: true,
+			video: true
+		})
 		.then(stream => {
-			vidLocal.src = window.URL.createObjectURL(stream);
+			vidLocal.srcObject = stream;
 			localStream = stream;
 
 			// Join a default room
